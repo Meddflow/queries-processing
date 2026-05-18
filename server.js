@@ -662,8 +662,22 @@ app.post('/api/query2', async (req, res) => {
     await client.connect();
     const mdb = client.db(db);
 
+    // $addFields + $reduce normalises INTERNALID regardless of UTF-8 BOM on the field name
+    const normId = {
+      $addFields: {
+        INTERNALID: {
+          $reduce: {
+            input: { $objectToArray: '$$ROOT' },
+            initialValue: null,
+            in: { $cond: [{ $regexMatch: { input: '$$this.k', regex: 'INTERNALID$' } }, '$$this.v', '$$value'] },
+          },
+        },
+      },
+    };
+
     const [rawPatients, rawHistory, rawAppts, rawPHN] = await Promise.all([
       mdb.collection('PATIENTS').aggregate([
+        normId,
         { $match: { INTERNALID: { $ne: null } } },
         { $project: { _id: 0, INTERNALID: 1, AGE: 1, DOB: 1, Ageband: 1, POSTCODE: 1 } },
       ], { allowDiskUse: true }).toArray(),
@@ -674,7 +688,8 @@ app.post('/api/query2', async (req, res) => {
       ], { allowDiskUse: true }).toArray(),
 
       mdb.collection('APPOINTMENTS').aggregate([
-        { $match: { RECORDSTATUS: 1, APPOINTMENTDATE: { $gte: new Date('2011-01-01'), $lte: new Date('2025-12-31') }, INTERNALID: { $ne: null } } },
+        normId,
+        { $match: { INTERNALID: { $ne: null }, APPOINTMENTDATE: { $gte: new Date('2011-01-01'), $lte: new Date('2025-12-31') } } },
         { $project: { _id: 0, INTERNALID: 1, APPOINTMENTDATE: 1 } },
       ], { allowDiskUse: true }).toArray(),
 
