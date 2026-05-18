@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Appointments — Dokotela</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #f0ede8; --card: #fff; --border: #ddd9d2;
+    --ink: #1a1713; --muted: #8a8278;
+    --a1: #e05c2f; --a2: #2f7be0; --a3: #2fbe7a;
+    --mono: 'DM Mono', monospace; --sans: 'Syne', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); padding: 28px; }
+  h1 { font-size: 26px; font-weight: 800; margin-bottom: 6px; letter-spacing: -.5px; }
+  .sub { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 20px; }
+
+  /* config bar */
+  .config { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+            background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+            padding: 16px 18px; margin-bottom: 18px; }
+  .cf { display: flex; flex-direction: column; gap: 4px; }
+  .cf label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .cf input, .cf select { background: var(--bg); border: 1px solid var(--border); color: var(--ink);
+                           padding: 7px 10px; border-radius: 6px; font-family: var(--mono); font-size: 12px;
+                           outline: none; min-width: 170px; }
+  .cf input:focus { border-color: var(--a1); }
+  button { padding: 8px 18px; border: none; border-radius: 6px; font-family: var(--sans);
+           font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+  button:hover { opacity: .82; }
+  .btn-run  { background: var(--a1); color: #fff; }
+  .btn-demo { background: var(--a3); color: #fff; }
+  #statusEl { font-family: var(--mono); font-size: 11px; color: var(--muted); align-self: center; }
+
+  /* year pills */
+  #yearPills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+  .pill { padding: 3px 11px; border-radius: 20px; border: 1px solid var(--border);
+          font-family: var(--mono); font-size: 11px; cursor: pointer;
+          background: var(--bg); color: var(--muted); }
+  .pill.active { background: var(--a1); border-color: var(--a1); color: #fff; }
+
+  /* kpi strip */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .kpi-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 1px;
+               text-transform: uppercase; margin-bottom: 8px; }
+  .kpi-value { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .kpi-sub   { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* chart grid */
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card-title { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 1.5px;
+                text-transform: uppercase; margin-bottom: 14px; }
+  .s12 { grid-column: span 12; }
+  .s6  { grid-column: span 6; }
+  .s4  { grid-column: span 4; }
+  @media (max-width: 860px) { .s6, .s4 { grid-column: span 12; } }
+
+  /* table */
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  th { text-align: left; color: var(--muted); font-size: 10px; padding: 5px 8px;
+       border-bottom: 1px solid var(--border); }
+  td { padding: 8px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<h1>Appointments Dashboard</h1>
+<p class="sub">Dokotela · APPOINTMENTS collection · 2011–2025</p>
+
+<!-- CONFIG -->
+<div class="config">
+  <div class="cf"><label>Database</label>    <input id="cfDb"    value="dokotela-reporting"/></div>
+  <div class="cf"><label>Collection</label>  <input id="cfColl"  value="APPOINTMENTS"/></div>
+  <div class="cf">
+    <label>Filter</label>
+    <select id="cfStatus">
+      <option value="1">Active only (RECORDSTATUS=1)</option>
+      <option value="all">All records</option>
+    </select>
+  </div>
+  <button class="btn-run" onclick="handleRun()">▶ Run</button>
+  <span id="statusEl">● loading…</span>
+</div>
+
+<!-- YEAR PILLS -->
+<div id="yearPills"></div>
+
+<!-- KPIs -->
+<div class="kpis">
+  <div class="kpi"><div class="kpi-label">Total Appointments</div>
+    <div class="kpi-value" data-kpi="total">—</div></div>
+  <div class="kpi"><div class="kpi-label">Unique Patients</div>
+    <div class="kpi-value" data-kpi="patients">—</div></div>
+  <div class="kpi"><div class="kpi-label">Avg / Patient</div>
+    <div class="kpi-value" data-kpi="avgPat">—</div></div>
+  <div class="kpi"><div class="kpi-label">Avg Visit Length</div>
+    <div class="kpi-value" data-kpi="avgVisit">—</div></div>
+  <div class="kpi"><div class="kpi-label">Avg Booked Length</div>
+    <div class="kpi-value" data-kpi="avgBooked">—</div></div>
+  <div class="kpi"><div class="kpi-label">YoY Growth</div>
+    <div class="kpi-value" data-kpi="yoy">—</div>
+    <div class="kpi-sub"   data-kpi="yoySub"></div></div>
+</div>
+
+<!-- CHARTS -->
+<div class="grid">
+  <div class="card s12"><div class="card-title">Monthly Volume Trend</div>
+    <canvas id="chartMonthly" style="max-height:210px"></canvas></div>
+
+  <div class="card s6"><div class="card-title">Annual Volume</div>
+    <canvas id="chartAnnual" style="max-height:250px"></canvas></div>
+
+  <div class="card s6"><div class="card-title">Appointment Type Distribution</div>
+    <canvas id="chartCode" style="max-height:250px"></canvas></div>
+
+  <div class="card s4"><div class="card-title">By Day of Week</div>
+    <canvas id="chartDOW" style="max-height:230px"></canvas></div>
+
+  <div class="card s4"><div class="card-title">Avg Visit Length by Month</div>
+    <canvas id="chartVisitLen" style="max-height:230px"></canvas></div>
+
+  <div class="card s4"><div class="card-title">New vs Returning Patients</div>
+    <canvas id="chartNewReturn" style="max-height:230px"></canvas></div>
+
+  <div class="card s12"><div class="card-title">Year-by-Year Summary</div>
+    <table>
+      <thead><tr>
+        <th>Year</th><th>Appointments</th><th>Unique Patients</th>
+        <th>Avg/Patient</th><th>Avg Visit (min)</th><th>Avg Booked (min)</th><th>Volume</th>
+      </tr></thead>
+      <tbody id="summaryBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script type="module">
+  import { init } from './appointments-dashboard.js';
+
+  async function run() {
+    const statusEl = document.getElementById('statusEl');
+    statusEl.textContent = '● fetching…';
+    statusEl.style.color = '#8a8278';
+    try {
+      await init({
+        db:         document.getElementById('cfDb').value.trim(),
+        activeOnly: document.getElementById('cfStatus').value === '1',
+        onStatus: (msg, level) => {
+          statusEl.textContent = '● ' + msg;
+          statusEl.style.color = level === 'ok' ? '#2fbe7a' : level === 'error' ? '#e05c2f' : '#8a8278';
+        },
+      });
+    } catch (e) {
+      statusEl.textContent = '● ' + e.message;
+      statusEl.style.color = '#e05c2f';
+    }
+  }
+
+  window.handleRun = run;
+
+  // Auto-load on page open
+  run();
+</script>
+
+</body>
+</html>

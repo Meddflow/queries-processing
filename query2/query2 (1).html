@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Query 2 — Age Band & Youth Demand · Dokotela</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#f0ede8;--card:#fff;--border:#ddd9d2;--ink:#1a1713;--muted:#8a8278;
+    --a1:#e05c2f;--a2:#2f7be0;--a3:#2fbe7a;--a4:#c4a800;
+    --mono:'DM Mono',monospace;--sans:'Syne',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);padding:28px;}
+  h1{font-size:24px;font-weight:800;margin-bottom:4px;letter-spacing:-.5px;}
+  .sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:20px;}
+
+  .config{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;
+          background:var(--card);border:1px solid var(--border);border-radius:10px;
+          padding:16px 18px;margin-bottom:18px;}
+  .cf{display:flex;flex-direction:column;gap:4px;}
+  .cf label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+  .cf input{background:var(--bg);border:1px solid var(--border);color:var(--ink);
+             padding:7px 10px;border-radius:6px;font-family:var(--mono);font-size:12px;outline:none;min-width:180px;}
+  .cf input:focus{border-color:var(--a1);}
+  button{padding:8px 18px;border:none;border-radius:6px;font-family:var(--sans);
+         font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s;}
+  button:hover{opacity:.82;}
+  .btn-run{background:var(--a1);color:#fff;}
+  #statusEl{font-family:var(--mono);font-size:11px;color:var(--muted);align-self:center;}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:18px;}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+  .kpi-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+  .kpi-value{font-size:26px;font-weight:800;letter-spacing:-1px;}
+  .kpi-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;}
+
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 20px;}
+  .card-title{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;}
+  .s12{grid-column:span 12;}.s6{grid-column:span 6;}.s4{grid-column:span 4;}.s8{grid-column:span 8;}
+  @media(max-width:860px){.s6,.s4,.s8{grid-column:span 12;}}
+
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+  th{text-align:left;color:var(--muted);font-size:10px;padding:5px 8px;border-bottom:1px solid var(--border);}
+  td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:nth-child(even){background:#f7f4f0;}
+
+  .note{font-family:var(--mono);font-size:10px;color:var(--a4);margin-top:8px;padding:6px 10px;
+        background:#fffbea;border-left:3px solid var(--a4);border-radius:0 4px 4px 0;}
+</style>
+</head>
+<body>
+
+<h1>Query 2 — Age Band &amp; Youth Demand Analysis</h1>
+<p class="sub">Dokotela · dokotela-reporting · PATIENTS × PASTHISTORY × APPOINTMENTS × Postcode_PHN_SA3_SA4</p>
+
+<div class="config">
+  <div class="cf"><label>MongoDB URI</label><input id="cfUri" value="mongodb://localhost:27017"/></div>
+  <button class="btn-run" onclick="handleRun()">▶ Run</button>
+  <span id="statusEl">● idle</span>
+</div>
+
+<!-- KPIs -->
+<div class="kpis">
+  <div class="kpi">
+    <div class="kpi-label">Total Patients</div>
+    <div class="kpi-value" data-kpi="totalPatients">—</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Youth Patients (12–24)</div>
+    <div class="kpi-value" data-kpi="youthPatients">—</div>
+    <div class="kpi-sub" data-kpi="youthPct">of total</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Fastest Growing Diagnosis</div>
+    <div class="kpi-value" data-kpi="topYouthDiag">—</div>
+    <div class="kpi-sub" data-kpi="topYouthGrowth">growth in youth cohort</div>
+  </div>
+</div>
+
+<!-- CHARTS -->
+<div class="grid">
+
+  <!-- Heatmap: Patient Count by Diagnosis × Ageband -->
+  <div class="card s12">
+    <div class="card-title">Patient Count by Diagnosis &amp; Age Band (all years)</div>
+    <canvas id="chartHeatmap" style="max-height:260px"></canvas>
+  </div>
+
+  <!-- Youth trend line -->
+  <div class="card s8">
+    <div class="card-title">Youth Appointments by Year &amp; Diagnosis (12–24 cohort)</div>
+    <canvas id="chartYouthTrend" style="max-height:260px"></canvas>
+  </div>
+
+  <!-- Youth stacked bar -->
+  <div class="card s4">
+    <div class="card-title">Youth Patients Stacked by Diagnosis &amp; Year</div>
+    <canvas id="chartYouthStacked" style="max-height:260px"></canvas>
+  </div>
+
+  <!-- Age Band Growth table -->
+  <div class="card s6">
+    <div class="card-title">Age Band Growth Ranking (2019 → 2025)</div>
+    <p class="note">Growth = (patients_2025 − patients_2019) / patients_2019 · Ranked desc per diagnosis</p>
+    <br/>
+    <table>
+      <thead><tr>
+        <th>Diagnosis</th><th>Age Band</th><th style="text-align:right">Total Patients</th>
+        <th style="text-align:right">Growth %</th><th style="text-align:center">Rank</th>
+      </tr></thead>
+      <tbody id="tbodyAgeBand"></tbody>
+    </table>
+  </div>
+
+  <!-- Youth by PHN -->
+  <div class="card s6">
+    <div class="card-title">Youth Demand by PHN Region (ranked by growth)</div>
+    <table>
+      <thead><tr>
+        <th>PHN Region</th>
+        <th style="text-align:right">Youth Appointments</th>
+        <th style="text-align:right">Youth Growth</th>
+        <th style="text-align:center">Region Rank</th>
+      </tr></thead>
+      <tbody id="tbodyPHN"></tbody>
+    </table>
+  </div>
+
+  <!-- Youth vs Adult by PHN -->
+  <div class="card s12">
+    <div class="card-title">Youth vs Adult Growth by PHN Region</div>
+    <p class="note">Youth Faster Than Adult = Youth Growth Rate &gt; Adult Growth Rate (2019→2025)</p>
+    <br/>
+    <table>
+      <thead><tr>
+        <th>PHN Region</th>
+        <th style="text-align:right">Youth Appts</th>
+        <th style="text-align:right">Adult Appts</th>
+        <th style="text-align:right">Youth Growth</th>
+        <th style="text-align:right">Adult Growth</th>
+        <th>Result</th>
+      </tr></thead>
+      <tbody id="tbodyYouthAdult"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script type="module">
+  import { init, CONFIG } from './query2-dashboard.js';
+
+  window.handleRun = async () => {
+    const statusEl = document.getElementById('statusEl');
+    statusEl.textContent = '● loading…';
+    try {
+      await init(
+        document.getElementById('cfUri').value.trim(),
+        (msg, level) => {
+          statusEl.textContent = '● ' + msg;
+          statusEl.style.color = level === 'ok' ? '#2fbe7a' : level === 'error' ? '#e05c2f' : '#8a8278';
+        }
+      );
+    } catch(e) {
+      statusEl.textContent = '● ' + e.message;
+      statusEl.style.color = '#e05c2f';
+      console.error(e);
+    }
+  };
+</script>
+
+</body>
+</html>
