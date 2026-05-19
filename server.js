@@ -419,7 +419,7 @@ function q2BuildEnriched(patients, history, appts, phnMap) {
   for (const r of appts) {
     const pid = String(r.INTERNALID ?? '');
     if (!pid) continue;
-    const d  = r.APPOINTMENTDATE instanceof Date ? r.APPOINTMENTDATE : new Date(r.APPOINTMENTDATE);
+    const d  = parseAusDate(r.APPOINTMENTDATE);
     if (isNaN(d)) continue;
     const yr = d.getFullYear();
     if (!apptYears[pid]) apptYears[pid] = new Set();
@@ -689,7 +689,7 @@ app.post('/api/query2', async (req, res) => {
 
       mdb.collection('APPOINTMENTS').aggregate([
         normId,
-        { $match: { INTERNALID: { $ne: null }, APPOINTMENTDATE: { $gte: new Date('2011-01-01'), $lte: new Date('2025-12-31') } } },
+        { $match: { INTERNALID: { $ne: null }, RECORDSTATUS: '1' } },
         { $project: { _id: 0, INTERNALID: 1, APPOINTMENTDATE: 1 } },
       ], { allowDiskUse: true }).toArray(),
 
