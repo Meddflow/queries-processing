@@ -12,11 +12,14 @@
 
 require('dotenv').config();   // loads .env into process.env
 const express         = require('express');
+const cors            = require('cors');
 const { MongoClient } = require('mongodb');
 const path            = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
+
+app.use(cors());
 
 // ── URI resolution ────────────────────────────────────────────────────────────
 // Priority: MONGO_URI env var > body.uri from the request
