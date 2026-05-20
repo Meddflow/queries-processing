@@ -19,7 +19,13 @@ const path            = require('path');
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://dev.dc45lk157lnmm.amplifyapp.com',
+    'http://localhost:3000',
+  ],
+  methods: ['GET', 'POST'],
+}));
 
 // ── URI resolution ────────────────────────────────────────────────────────────
 // Priority: MONGO_URI env var > body.uri from the request
