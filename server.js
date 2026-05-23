@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors({
   origin: [
-    'https://dev.dc45lk157lnmm.amplifyapp.com',
+    'https://dev.dca5lk157fpmm.amplifyapp.com',
     'http://localhost:3000',
   ],
   methods: ['GET', 'POST'],
