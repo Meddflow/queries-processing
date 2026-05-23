@@ -339,6 +339,10 @@ app.post('/api/query6', async (req, res) => {
 
     res.json({ kpis, charts, tables: { summaryTable } });
 
+    // Free large arrays so GC can reclaim memory immediately
+    rawRows.length   = 0;
+    records.length   = 0;
+
   } catch (err) {
     console.error('[query6 error]', err.message);
     res.status(500).json({ error: err.message });
@@ -767,6 +771,13 @@ app.post('/api/query2', async (req, res) => {
     };
 
     res.json({ kpis, charts, tables: { ageBandGrowthTable, youthByPHNTable, youthVsAdultTable } });
+
+    // Free large arrays so GC can reclaim memory immediately
+    rawPatients.length = 0;
+    rawHistory.length  = 0;
+    rawAppts.length    = 0;
+    rawPHN.length      = 0;
+    patients.length    = 0;
 
   } catch (err) {
     console.error('[query2 error]', err.message);
